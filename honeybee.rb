@@ -2,6 +2,7 @@
 
 require 'time'
 require 'digest/md5'
+require 'ruby-debug'
 
 class Honeybee
   def initialize(block_secret, field_secret, iv_secret, spinner_key, a_secret)
@@ -14,6 +15,7 @@ class Honeybee
 
   def prepare_form(time, ip, blog_id, *form)
 
+    debugger
     if time == nil
       time = Time.now
     end
@@ -92,3 +94,13 @@ class Honeybee
 
 end
 
+if __FILE__ == $0
+  honey = Honeybee("lock_secret" "field_secret", "iv_secret", "spinner_key", "a_secret")
+  form = Hash.new
+  form.append(:name => '')
+  form.append(:mail => '')
+  form.append(:message => '')
+  ip = `/sbin/ifconfig eth0 | grep 'inet addr:' | cut -d: -f2 | awk '{ print $1}'`
+  blog_id = '2'
+  newform = honey.prepare_form(nil, ip, blog_id, form)
+end
