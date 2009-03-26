@@ -2,9 +2,15 @@
 
 require 'time'
 require 'digest/md5'
+require 'rubygems'
 require 'ruby-debug'
+require 'ruby-aes'
 
 class Honeybee
+
+  KEY_LENGTH = 256.freeze
+  MODE = 'CBC'.freeze
+
   def initialize(block_secret, field_secret, iv_secret, spinner_key, a_secret)
     @block_secret   = block_secret
     @iv_secret      = iv_secret
@@ -13,29 +19,30 @@ class Honeybee
     @a_secret       = a_secret
   end
 
-  def prepare_form(time, ip, blog_id, *form)
+  def prepare_form(time, ip, blog_id, form)
 
-    debugger
+    newform = Hash.new
+
     if time == nil
       time = Time.now
     end
 
     spinner = build_spinner(time, ip, blog_id)
-    form << { :spinner => spinner }
-    form << { :time => time }
-    form << { :blog_id => blog_id }
+    form[:spinner] = spinner
+    form[:time]    = time
+    form[:blog_id] = blog_id
 
     #All names are encrypted here, time and blog_id values are also AESd
     form.each do |n,v|
-
       new_n = convert_fieldname(n,spinner)
-      if k == :time || k == :blog_id
+
+      if n == :time || n == :blog_id
         new_v = aes_encrypt(v)
       else
         new_v = v
       end
 
-      newform << { new_n => new_v }
+      newform[new_n] = new_v
 
     end
 
@@ -48,21 +55,21 @@ class Honeybee
   end
 
   def build_spinner(time, ip, blog_id)
-    return Digest::MD5.hexdigest(time + ip + blog_id + @spinner_secret)
+    return Digest::MD5.hexdigest(time.to_s + ip + blog_id + @spinner_secret)
   end
 
   def aes_encrypt(value)
-    return Aes.encrypt_block(KEY_LENGTH, MODE, @block_secret, @iv_secret, value)
+    return Aes.encrypt_buffer(KEY_LENGTH, MODE, @block_secret, @iv_secret, value.to_s)
   end
 
   def convert_fieldname(name,spinner)
-    #Keys are hashes of the real field name, the spinner, and a secret
+    #Keys are md5.hashes of the real field name, the spinner, and a secret
 
     if name == :spinner
       #EXCEPT for the spinner itself, its key is AES encrypted using spinner_key
-      new_name = Aes.encrypt_block(KEY_LENGTH, MODE, @spinner_key, @iv_secret, :spinner)
+      new_name = Aes.encrypt_buffer(KEY_LENGTH, MODE, @spinner_key, @iv_secret, :spinner.to_s)
     else
-      new_name = Digest::MD5.hexdigest(name + spinner + @a_secret)
+      new_name = Digest::MD5.hexdigest(name.to_s + spinner + @a_secret)
     end
 
     return new_name
@@ -95,12 +102,18 @@ class Honeybee
 end
 
 if __FILE__ == $0
-  honey = Honeybee("lock_secret" "field_secret", "iv_secret", "spinner_key", "a_secret")
+  honey = Honeybee.new("lock_secretgsijghowi  afhfjsdfhs",  #32 chars long
+                       "field_secretyadaydahdgaydaydgagd",  #32 chars long
+                       "12345678901234567890123456789012",  #IV- 32 hex chars
+                       "spinner_key_exactly_32_char_long",  #32 chars long
+                       "a_secret")
   form = Hash.new
-  form.append(:name => '')
-  form.append(:mail => '')
-  form.append(:message => '')
+  form[:name] = 'name'
+  form[:mail] = 'mail'
+  form[:message] = 'rain in spain'
   ip = `/sbin/ifconfig eth0 | grep 'inet addr:' | cut -d: -f2 | awk '{ print $1}'`
   blog_id = '2'
+#  newform = Hash.new
   newform = honey.prepare_form(nil, ip, blog_id, form)
+  p newform
 end
