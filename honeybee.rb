@@ -19,21 +19,24 @@ class Honeybee
     @a_secret       = a_secret
   end
 
-  def prepare_form(time, ip, blog_id, form)
+  def encrypt_form(time, ip, blog_id, form)
 
-    newform = Hash.new
+    newform = Array.new
 
     if time == nil
       time = Time.now
     end
 
     spinner = build_spinner(time, ip, blog_id)
-    form[:spinner] = spinner
-    form[:time]    = time
-    form[:blog_id] = blog_id
+    form.push(:spinner, spinner)
+    form.push(:time,    time)
+    form.push(:blog_id, blog_id)
+    # form[:spinner] = spinner
+    # form[:time]    = time
+    # form[:blog_id] = blog_id
 
     #All names are encrypted here, time and blog_id values are also AESd
-    form.each do |n,v|
+    form.eachpair do |n,v|
       new_n = convert_fieldname(n,spinner)
 
       if n == :time || n == :blog_id
@@ -42,7 +45,8 @@ class Honeybee
         new_v = v
       end
 
-      newform[new_n] = new_v
+      newform.push(new_n, new_v)
+      # newform[new_n] = new_v
 
     end
 
@@ -104,16 +108,20 @@ end
 if __FILE__ == $0
   honey = Honeybee.new("lock_secretgsijghowi  afhfjsdfhs",  #32 chars long
                        "field_secretyadaydahdgaydaydgagd",  #32 chars long
-                       "12345678901234567890123456789012",  #IV- 32 hex chars
+                       "1234567890ABCDEF01234567890ABCDE",  #IV- 32 hex chars
                        "spinner_key_exactly_32_char_long",  #32 chars long
                        "a_secret")
-  form = Hash.new
-  form[:name] = 'name'
-  form[:mail] = 'mail'
-  form[:message] = 'rain in spain'
+  form = Array.new
+  debugger
+  form.push('name', '')
+  form.push('mail', '')
+  form.push('message', '')
+  # form[:name] = 'name'
+  # form[:mail] = 'mail'
+  # form[:message] = 'rain in spain'
   ip = `/sbin/ifconfig eth0 | grep 'inet addr:' | cut -d: -f2 | awk '{ print $1}'`
   blog_id = '2'
 #  newform = Hash.new
-  newform = honey.prepare_form(nil, ip, blog_id, form)
+  newform = honey.encrypt_form(nil, ip, blog_id, form)
   p newform
 end
